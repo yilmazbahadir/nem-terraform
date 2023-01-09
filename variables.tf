@@ -6,6 +6,7 @@ variable "configuser_properties" {
 variable "logalpha_properties" {
     type = string
     description = "logalpha.properties file content"
+    default = ""
 }
 
 variable "db_properties" {
