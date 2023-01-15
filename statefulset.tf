@@ -1,30 +1,31 @@
+locals {
+  volume_config_items = { for map_item in [
+    { key = "configuser.properties", value = { path = "configuser.properties", mount_path = "/usersettings/config-user.properties", content = var.configuser_properties } },
+    { key = "logalpha.properties", value = { path = "logalpha.properties", mount_path = "/usersettings/logalpha.properties", content = var.logalpha_properties } },
+    { key = "db.properties", value = { path = "db.properties", mount_path = "/usersettings/db.properties", content = var.db_properties } },
+    { key = "nemesis-file", value = { path = "nemesis-file", mount_path = "/usersettings/custom-nemesis.bin", content = var.nemesis_file_base64 } },
+    { key = local.peers_json_filename, value = { path = local.peers_json_filename, mount_path = "/usersettings/${local.peers_json_filename}", content = var.peers_config_json } }
+  ] : map_item.key => map_item.value if map_item.value.content != "" }
+}
+
 resource "kubernetes_stateful_set" "statefulset" {
   metadata {
-    name = "statefulset"
-
-    labels = templatefile("${path.module}/common/labels.tftpl", {})
+    name   = local.full_name
+    labels = local.labels
   }
 
   spec {
     replicas = 1
 
     selector {
-      match_labels = {
-        "app.kubernetes.io/instance" = "release-name"
-        "app.kubernetes.io/name" = "nem-client"
-      }
+      match_labels = local.labels
     }
 
     template {
       metadata {
-        labels = {
-          "app.kubernetes.io/instance" = "release-name"
-          "app.kubernetes.io/name" = "nem-client"
-        }
+        labels = local.labels
 
-        annotations = {
-          "checksum/config" = "d9a11eb3c3ae41b3e6d27bb697a6e4211081a876469deb090d8f2e30d9a15555"
-        }
+        annotations = var.annotations
       }
 
       spec {
@@ -32,11 +33,15 @@ resource "kubernetes_stateful_set" "statefulset" {
           name = "config"
 
           config_map {
-            name = "release-name-nem-client"
+            name = local.full_name
 
-            items {
-              key  = "configuser.properties"
-              path = "configuser.properties"
+            dynamic "items" {
+              for_each = local.volume_config_items
+
+              content {
+                key  = items.key
+                path = items.value.path
+              }
             }
           }
         }
@@ -59,8 +64,8 @@ resource "kubernetes_stateful_set" "statefulset" {
         }
 
         container {
-          name  = "nem-client"
-          image = "nemofficial/nis-client:0.6.100@sha256:8ccfdb5de8cfce01c91c599fe2c91ddafe74940923e3d1bda667137747dd7dcd"
+          name  = var.name
+          image = local.image_name
 
           port {
             name           = "http"
@@ -85,10 +90,14 @@ resource "kubernetes_stateful_set" "statefulset" {
             mount_path = "/app/data"
           }
 
-          volume_mount {
-            name       = "config"
-            mount_path = "/usersettings/config-user.properties"
-            sub_path   = "configuser.properties"
+          dynamic "volume_mount" {
+            for_each = local.volume_config_items
+
+            content {
+              name       = "config"
+              mount_path = volume_mount.value.mount_path
+              sub_path   = volume_mount.value.path
+            }
           }
 
           liveness_probe {
@@ -142,11 +151,11 @@ resource "kubernetes_stateful_set" "statefulset" {
       }
     }
 
-    service_name          = "nem-client-headless"
-    pod_management_policy = "OrderedReady"
+    service_name          = "${local.full_name}-headless"
+    pod_management_policy = var.pod_management_policy
 
     update_strategy {
-      type = "RollingUpdate"
+      type = var.update_strategy
     }
   }
 }
