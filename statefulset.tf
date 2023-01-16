@@ -8,10 +8,11 @@ locals {
   ] : map_item.key => map_item.value if map_item.value.content != "" }
 }
 
-resource "kubernetes_stateful_set" "statefulset" {
+resource "kubernetes_stateful_set" "this" {
   metadata {
-    name   = local.full_name
-    labels = local.labels
+    name      = local.full_name
+    labels    = local.labels
+    namespace = var.namespace
   }
 
   spec {
