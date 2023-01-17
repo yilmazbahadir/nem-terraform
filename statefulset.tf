@@ -1,6 +1,6 @@
 locals {
   volume_config_items = { for map_item in [
-    { key = "configuser.properties", value = { path = "configuser.properties", mount_path = "/usersettings/config-user.properties", content = var.configuser_properties } },
+    { key = "configuser.properties", value = { path = "configuser.properties", mount_path = "/usersettings/config-user.properties", content = local.configuser_properties_content } },
     { key = "logalpha.properties", value = { path = "logalpha.properties", mount_path = "/usersettings/logalpha.properties", content = var.logalpha_properties } },
     { key = "db.properties", value = { path = "db.properties", mount_path = "/usersettings/db.properties", content = var.db_properties } },
     { key = "nemesis-file", value = { path = "nemesis-file", mount_path = "/usersettings/custom-nemesis.bin", content = var.nemesis_file_base64 } },
@@ -46,18 +46,25 @@ resource "kubernetes_stateful_set" "this" {
             }
           }
         }
+        dynamic "volume" {
+          for_each = var.persistence_enabled ? [] : [1]
+          content {
+            name = "nem-data"
+            empty_dir {}
+          }
+        }
 
         init_container {
           name    = "init-chown-data"
-          image   = "busybox:1.35.0"
-          command = ["chown", "-R", "11001:11001", "/app/data"]
+          image   = "${var.init_chown_data.image.repository}:${var.init_chown_data.image.tag}"
+          command = ["chown", "-R", "${var.pod_security_context.runAsUser}:${var.pod_security_context.runAsGroup}", var.configuser_nem_folder]
 
           volume_mount {
             name       = "nem-data"
-            mount_path = "/app/data"
+            mount_path = var.configuser_nem_folder
           }
 
-          image_pull_policy = "IfNotPresent"
+          image_pull_policy = var.init_chown_data.image.pull_policy
 
           security_context {
             run_as_user = 0
@@ -70,25 +77,25 @@ resource "kubernetes_stateful_set" "this" {
 
           port {
             name           = "http"
-            container_port = 7890
+            container_port = var.configuser_http_port
             protocol       = "TCP"
           }
 
           port {
             name           = "https"
-            container_port = 7891
+            container_port = var.configuser_https_port
             protocol       = "TCP"
           }
 
           port {
             name           = "7778-tcp"
-            container_port = 7778
+            container_port = var.configuser_websocket_port
             protocol       = "TCP"
           }
 
           volume_mount {
             name       = "nem-data"
-            mount_path = "/app/data"
+            mount_path = var.configuser_nem_folder
           }
 
           dynamic "volume_mount" {
@@ -101,54 +108,61 @@ resource "kubernetes_stateful_set" "this" {
             }
           }
 
-          liveness_probe {
-            tcp_socket {
-              port = "http"
-            }
+          dynamic "liveness_probe" {
+            for_each = var.liveness_probe_enabled ? [1] : []
 
-            initial_delay_seconds = 60
-            period_seconds        = 120
+            content {
+              tcp_socket {
+                port = "http"
+              }
+
+              initial_delay_seconds = var.liveness_probe_initial_delay
+              period_seconds        = var.liveness_probe_period
+            }
           }
 
-          readiness_probe {
-            tcp_socket {
-              port = "http"
-            }
+          dynamic "readiness_probe" {
+            for_each = var.readiness_probe_enabled ? [1] : []
+            content {
+              tcp_socket {
+                port = "http"
+              }
 
-            initial_delay_seconds = 60
-            period_seconds        = 10
+              initial_delay_seconds = var.readiness_probe_initial_delay
+              period_seconds        = var.readiness_probe_period
+            }
           }
 
-          image_pull_policy = "IfNotPresent"
+          image_pull_policy = var.image_pull_policy
         }
 
-        termination_grace_period_seconds = 300
-        service_account_name             = "nem-client"
+        termination_grace_period_seconds = var.termination_grace_period
 
         security_context {
-          run_as_user     = 11001
-          run_as_group    = 11001
-          run_as_non_root = true
-          fs_group        = 11001
+          run_as_user  = var.pod_security_context.runAsUser
+          run_as_group = var.pod_security_context.runAsGroup
         }
       }
     }
 
-    volume_claim_template {
-      metadata {
-        name = "nem-data"
-      }
-
-      spec {
-        access_modes = ["ReadWriteOnce"]
-
-        resources {
-          requests = {
-            storage = "8Gi"
-          }
+    dynamic "volume_claim_template" {
+      for_each = var.persistence_enabled ? [1] : []
+      content {
+        metadata {
+          name = "nem-data"
         }
 
-        storage_class_name = "local-path"
+        spec {
+          access_modes = var.persistence_access_modes
+
+          resources {
+            requests = {
+              storage = var.persistence_storage_size
+            }
+          }
+
+          storage_class_name = var.persistence_storage_class_name
+        }
       }
     }
 

@@ -5,7 +5,7 @@ resource "kubernetes_config_map" "configmap" {
   }
 
   data = {
-    "configuser.properties"        = "${var.configuser_properties}"
+    "configuser.properties"        = "${local.configuser_properties_content}"
     "logalpha.properties"          = "${var.logalpha_properties}"
     "db.properties"                = "${var.db_properties}"
     "${local.peers_json_filename}" = "${var.peers_config_json}"

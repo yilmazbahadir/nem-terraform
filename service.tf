@@ -9,19 +9,19 @@ resource "kubernetes_service" "this" {
     port {
       name     = "http"
       protocol = "TCP"
-      port     = 7890
+      port     = var.configuser_http_port
     }
 
     port {
       name     = "https"
       protocol = "TCP"
-      port     = 7891
+      port     = var.configuser_https_port
     }
 
     port {
       name     = "7778-tcp"
       protocol = "TCP"
-      port     = 7778
+      port     = var.configuser_websocket_port
     }
 
     selector = local.labels
