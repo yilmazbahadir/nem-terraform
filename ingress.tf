@@ -1,4 +1,5 @@
 resource "kubernetes_ingress_v1" "this" {
+  count = var.ingress_enabled ? 1 : 0
   metadata {
     name      = local.full_name
     namespace = var.namespace
@@ -7,52 +8,30 @@ resource "kubernetes_ingress_v1" "this" {
   }
 
   spec {
-    ingress_class_name = "nginx"
+    ingress_class_name = var.ingress_class_name
 
-    rule {
-      host = "localhost"
+    dynamic "rule" {
+      for_each = var.ingress_rules
 
-      http {
-        path {
-          path      = "/"
-          path_type = "ImplementationSpecific"
+      content {
+        host = rule.value.host
 
-          backend {
-            service {
-              name = local.full_name
+        http {
+          dynamic "path" {
+            for_each = rule.value.paths
 
-              port {
-                number = 7890
-              }
-            }
-          }
-        }
+            content {
+              path      = path.value.path
+              path_type = path.value.path_type
 
-        path {
-          path      = "/"
-          path_type = "ImplementationSpecific"
+              backend {
+                service {
+                  name = local.full_name
 
-          backend {
-            service {
-              name = local.full_name
-
-              port {
-                number = 7891
-              }
-            }
-          }
-        }
-
-        path {
-          path      = "/"
-          path_type = "ImplementationSpecific"
-
-          backend {
-            service {
-              name = local.full_name
-
-              port {
-                number = 7778
+                  port {
+                    number = path.value.backend_service_port
+                  }
+                }
               }
             }
           }

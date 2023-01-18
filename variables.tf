@@ -244,3 +244,54 @@ variable "persistence_access_modes" {
   type        = list(string)
   default     = ["ReadWriteOnce"]
 }
+
+variable "ingress_enabled" {
+  description = "(Optional) Ingress enabled"
+  type        = bool
+  default     = true
+}
+
+variable "ingress_class_name" {
+  description = "(Optional) Ingress class name"
+  type        = string
+  default     = "nginx"
+}
+
+variable "ingress_annotations" {
+  description = "(Optional) Ingress annotations"
+  type        = list(any)
+  default     = []
+}
+
+variable "ingress_rules" {
+  description = "(Optional) Ingress rules and paths"
+  #   type        = list(any)
+  type = list(object({
+    host = string
+    paths = list(object({
+      path                 = string
+      path_type            = string
+      backend_service_port = number
+    }))
+  }))
+  default = [{
+    host = "localhost"
+    paths = [
+      {
+        path                 = "/"
+        path_type            = "ImplementationSpecific"
+        backend_service_port = 7890
+      },
+      {
+        path                 = "/"
+        path_type            = "ImplementationSpecific"
+        backend_service_port = 7891
+      },
+      {
+        path                 = "/"
+        path_type            = "ImplementationSpecific"
+        backend_service_port = 7778
+      }
+    ]
+  }]
+}
