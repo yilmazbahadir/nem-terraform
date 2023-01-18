@@ -10,6 +10,15 @@ resource "kubernetes_ingress_v1" "this" {
   spec {
     ingress_class_name = var.ingress_class_name
 
+    dynamic "tls" {
+      for_each = var.ingress_tls
+
+      content {
+        hosts       = tls.value.hosts
+        secret_name = tls.value.secret_name
+      }
+    }
+
     dynamic "rule" {
       for_each = var.ingress_rules
 

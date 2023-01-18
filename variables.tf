@@ -295,3 +295,9 @@ variable "ingress_rules" {
     ]
   }]
 }
+
+variable "ingress_tls" {
+  description = "Ingress TLS parameters"
+  type        = list(any)
+  default     = []
+}
