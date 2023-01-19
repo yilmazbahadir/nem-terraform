@@ -1,7 +1,8 @@
 resource "kubernetes_config_map" "configmap" {
   metadata {
-    name   = local.full_name
-    labels = local.labels
+    name      = local.full_name
+    labels    = local.labels
+    namespace = var.namespace
   }
 
   data = {

@@ -248,7 +248,7 @@ variable "persistence_access_modes" {
 variable "ingress_enabled" {
   description = "(Optional) Ingress enabled"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "ingress_class_name" {
